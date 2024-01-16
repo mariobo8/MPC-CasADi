@@ -1,3 +1,4 @@
+%% TO BE IMPLEMENTED
 % first casadi test for mpc fpr mobile robots
 clear all
 close all
@@ -6,23 +7,27 @@ clc
 addpath('/Users/mariobozza/Documents/CasADi/casadi-3.6.4-osx64-matlab2018b')
 
 import casadi.*
-
+%% define path
+xu = linspace(1,0.1,10);
+yu = zeros(1,100);
+%%
 T = 0.2; %[s]
-N = 30; % prediction horizon
+N = 80; % prediction horizon
 rob_diam = 0.3;
 lf = 0.4;
 lr = 0.4;
-v_max = 0.5; v_min = -v_max;
+v_max = 0.6; v_min = -v_max;
 delta_max = pi/4; delta_min = -delta_max;
 
 % States
-x = SX.sym('x'); y = SX.sym('y'); psi = SX.sym('psi');
-states = [x; y; psi]; n_states = length(states);
+x = SX.sym('x'); y = SX.sym('y'); psi = SX.sym('psi'); 
+theta = SX.sym('theta');
+states = [x; y; psi, theta]; n_states = length(states);
 
 % inputs
 vf = SX.sym('vf'); vr = SX.sym('vr'); 
 deltaf = SX.sym('deltaf'); deltar = SX.sym('deltar');
-
+virtual_v = SX.sym('virtual_v');
 controls = [vf; vr; deltaf; deltar]; n_controls = length(controls);
 
 % kinematics
@@ -30,7 +35,8 @@ beta = atan((lf * tan(deltar) + lr * tan(deltaf)) / (lf + lr));
 v = (vf * cos(deltaf) + vr * cos(deltar)) / (2 * cos(beta));
 
 rhs = [v * cos(psi + beta); v * sin(psi + beta); ... 
-       v * cos(beta) * (tan(deltaf) - tan(deltar)) / (lf + lr)]; % system r.h.s
+       v * cos(beta) * (tan(deltaf) - tan(deltar)) / (lf + lr);
+       virtual_v]; % system r.h.s
 
 f = Function('f',{states,controls},{rhs}); % nonlinear mapping function f(x,u)
 U = SX.sym('U',n_controls,N); % Decision variables (controls)
@@ -43,15 +49,15 @@ X = SX.sym('X',n_states,(N+1));
 obj = 0; % Objective function
 g = [];  % constraints vector
 
-Q = zeros(3,3); Q(1,1) = 15;Q(2,2) = 15;Q(3,3) = 1; % weighing matrices (states)
+Q = zeros(3,3); Q(1,1) = 4;Q(2,2) = 15;Q(3,3) = 5; % weighing matrices (states)
 R = zeros(4,4); R(1,1) = 2.5; R(2,2) = 2.5; ...
-                R(3,3) = 0.1; R(4,4) = 0.1;% weighing matrices (controls)
+                R(3,3) = 0.001; R(4,4) = 0.001;% weighing matrices (controls)
 
-W = 10; % wieghting matrix for the skidding
-G = zeros(2,2); R(1,1) = 2.5; R(2,2) = 2.5; % weighing matrices (acceleration)
+W = 40; % wieghting matrix for the skidding
+G = zeros(2,2); R(1,1) = 15.5; R(2,2) = 15.5; % weighing matrices (acceleration)
 
 st  = X(:,1); % initial state
-g = [g;st-P(1:3)]; % initial condition constraints
+g = [g;st-P(1:4)]; % initial condition constraints
 
 for k = 1:N
 
@@ -67,6 +73,7 @@ for k = 1:N
     st_next = X(:,k+1);
     f_value = f(st,con);
     st_next_euler = st+ (T*f_value);
+    st_u = u(k+1) + delta_u; 
     g = [g;st_next-st_next_euler]; % compute constraints
 end
 % make the decision variable one column  vector
@@ -88,10 +95,18 @@ args = struct;
 args.lbg(1:3*(N+1)) = 0;  % -1e-20  % Equality constraints
 args.ubg(1:3*(N+1)) = 0;  % 1e-20   % Equality constraints
 
-args.lbx(1:3:3*(N+1),1) = -inf; %state x lower bound
-args.ubx(1:3:3*(N+1),1) = inf; %state x upper bound
-args.lbx(2:3:3*(N+1),1) = -inf; %state y lower bound
-args.ubx(2:3:3*(N+1),1) = inf; %state y upper bound
+%parameters for constr
+x1_bar = 1;
+x2_bar = 1;
+eps = 0.5; %also employed to construct an extendedset 
+            % Z_ε (introduced later) taking the particular structure of
+            % the path-following problem into account.
+
+%
+args.lbx(1:3:3*(N+1),1) = -x1_bar; %state x lower bound
+args.ubx(1:3:3*(N+1),1) = -eps; %state x upper bound
+args.lbx(2:3:3*(N+1),1) = -x2_bar; %state y lower bound
+args.ubx(2:3:3*(N+1),1) = x2_bar; %state y upper bound
 args.lbx(3:3:3*(N+1),1) = -inf; %state theta lower bound
 args.ubx(3:3:3*(N+1),1) = inf; %state theta upper bound
 
@@ -104,6 +119,12 @@ args.lbx(3*(N+1)+3:4:3*(N+1)+n_controls*N-1,1) = delta_min;
 args.lbx(3*(N+1)+4:4:3*(N+1)+n_controls*N,1)   = delta_min;
 args.ubx(3*(N+1)+3:4:3*(N+1)+n_controls*N-1,1) = delta_max;
 args.ubx(3*(N+1)+4:4:3*(N+1)+n_controls*N,1)   = delta_max;
+
+% Parametrization p : [θ, 0] → R3
+theta_bar = -x1_bar;
+    %add that p(0) = 0
+
+%
 %----------------------------------------------
 % ALL OF THE ABOVE IS JUST A PROBLEM SET UP
 
@@ -112,7 +133,7 @@ args.ubx(3*(N+1)+4:4:3*(N+1)+n_controls*N,1)   = delta_max;
 %-------------------------------------------
 t0 = 0;
 x0 = [0 ; 0 ; 0.0];    % initial condition.
-xs = [2 ; 2 ; pi/2]; % Reference posture.
+xs = [1.5 ; 1.5 ; pi]; % Reference posture.
 
 xx(:,1) = x0; % xx contains the history of states
 t(1) = t0;
