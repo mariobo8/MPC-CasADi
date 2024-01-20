@@ -1,4 +1,4 @@
-function Draw_MPC_point_stabilization_4WS (t,xx,xx1,u_cl,xs,N,rob_diam,beta)
+function Draw_MPC_path_trackin_carexample (t,xx,xx1,u_cl,xs,N, step_time, average_mpc_time, f2, cost_f)
 
 
 set(0,'DefaultAxesFontName', 'Times New Roman')
@@ -6,7 +6,9 @@ set(0,'DefaultAxesFontSize', 12)
 
 line_width = 1.5;
 fontsize_labels = 14;
-
+%% compute path
+theta_range = linspace(-30, 0, 300);
+rho_val = full(f2(theta_range));
 %--------------------------------------------------------------------------
 %-----------------------Simulate robots -----------------------------------
 %--------------------------------------------------------------------------
@@ -15,6 +17,7 @@ y_r_1 = [];
 
 
 figure(500)
+
 % Animate the robot motion
 %figure;%('Position',[200 200 1280 720]);
 set(gcf,'PaperPositionMode','auto')
@@ -22,14 +25,16 @@ set(gcf, 'Color', 'w');
 set(gcf,'Units','normalized','OuterPosition',[0 0 0.55 1]);
 
 for k = 1:size(xx,2)
-    h_t = 0.14; w_t=0.09; % triangle parameters
-    
-    x1 = xs(1); y1 = xs(2); th1 = xs(3);
+    h_t = 0.5; w_t=0.3; % triangle parameters
+    %plot path
+    plot(theta_range, rho_val,'-k','linewidth',line_width);
+    hold on
+    x1 = xs(1); y1 = xs(2); th1 = xs(3); %final goal
     x1_tri = [ x1+h_t*cos(th1), x1+(w_t/2)*cos((pi/2)-th1), x1-(w_t/2)*cos((pi/2)-th1)];%,x1+(h_t/3)*cos(th1)];
     y1_tri = [ y1+h_t*sin(th1), y1-(w_t/2)*sin((pi/2)-th1), y1+(w_t/2)*sin((pi/2)-th1)];%,y1+(h_t/3)*sin(th1)];
-    fill(x1_tri, y1_tri, 'g'); % plot reference state
+    fill(x1_tri, y1_tri, 'g'); % plot final position
     hold on;
-    x1 = xx(1,k,1); y1 = xx(2,k,1); th1 = xx(3,k,1);
+    x1 = xx(1,k,1); y1 = xx(2,k,1); th1 = xx(3,k,1); %state
     x_r_1 = [x_r_1 x1];
     y_r_1 = [y_r_1 y1];
     x1_tri = [ x1+h_t*cos(th1), x1+(w_t/2)*cos((pi/2)-th1), x1-(w_t/2)*cos((pi/2)-th1)];%,x1+(h_t/3)*cos(th1)];
@@ -48,7 +53,7 @@ for k = 1:size(xx,2)
     %figure(500)
     ylabel('$y$-position (m)','interpreter','latex','FontSize',fontsize_labels)
     xlabel('$x$-position (m)','interpreter','latex','FontSize',fontsize_labels)
-    axis([-0.2 2.5 -0.2 2.5])
+    axis([-35 5 -5 7.5]) 
     pause(0.1)
     box on;
     grid on
@@ -66,33 +71,33 @@ close(gcf)
 % close (video)
 
 figure
-subplot(321)
-stairs(t,u_cl(:,1),'k','linewidth',1.5); axis([0 t(end) -0.35 0.75])
-ylabel('v_f (rad/s)')
+subplot(311)
+stairs(t,u_cl(:,1),'k','linewidth',1.5); xlim([0 t(end)])
+ylabel('v (rad/s)')
 grid on
-subplot(322)
-stairs(t,u_cl(:,2),'k','linewidth',1.5); axis([0 t(end) -0.85 0.85])
+subplot(312)
+stairs(t,u_cl(:,2),'k','linewidth',1.5); xlim([0 t(end)])
 xlabel('time (seconds)')
-ylabel('v_r (rad/s)')
+ylabel('delta (rad/s)')
 grid on
-subplot(323)
-stairs(t,u_cl(:,3),'r','linewidth',1.5); axis([0 t(end) -0.85 0.85])
+subplot(313)
+stairs(t,u_cl(:,3),'r','linewidth',1.5); xlim([0 t(end)])
 xlabel('time (seconds)')
-ylabel('delta_f (rad)')
-grid on
-subplot(324)
-stairs(t,u_cl(:,4),'r','linewidth',1.5); axis([0 t(end) -0.85 0.85])
-xlabel('time (seconds)')
-ylabel('delta_r (rad)')
-grid on
-subplot(325)
-stairs(t,u_cl(:,5),'r','linewidth',1.5); axis([0 t(end) -0.85 0.85])
-xlabel('time (seconds)')
-ylabel('alpha (rad)')
+ylabel('virtual_v (rad)')
 grid on
 
 figure
-stairs(t, beta,'b','linewidth',1.5)
-xlabel('time (seconds)')
-ylabel('sideslip angle (rad)')
+plot(t,step_time*1000,'linewidth',line_width);
+hold on 
+yline(average_mpc_time*1000,'linewidth',line_width);
+xlabel('mpc step')
+ylabel('solving time (ms)')
 grid on
+
+figure
+plot(t, cost_f,'linewidth',line_width)
+xlabel('mpc step')
+ylabel('Objective function')
+grid on
+
+

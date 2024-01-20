@@ -3,7 +3,6 @@ clear all
 close all
 clc
 
-addpath('/Users/mariobozza/Documents/CasADi/casadi-3.6.4-osx64-matlab2018b')
 
 import casadi.*
 
@@ -47,8 +46,9 @@ Q = zeros(3,3); Q(1,1) = 15;Q(2,2) = 15;Q(3,3) = 1; % weighing matrices (states)
 R = zeros(4,4); R(1,1) = 2.5; R(2,2) = 2.5; ...
                 R(3,3) = 0.1; R(4,4) = 0.1;% weighing matrices (controls)
 
-W = 10; % wieghting matrix for the skidding
-G = zeros(2,2); R(1,1) = 2.5; R(2,2) = 2.5; % weighing matrices (acceleration)
+W = 1; % wieghting matrix for side sliding
+G = zeros(4,4); R(1,1) = 4; R(2,2) = 4; 
+                R(3,3) = 4; R(3,3) = 4;% weighing matrices (acceleration)
 
 st  = X(:,1); % initial state
 g = [g;st-P(1:3)]; % initial condition constraints
@@ -63,7 +63,7 @@ for k = 1:N
     end
     obj = obj+(st-P(4:6))'*Q*(st-P(4:6)) + con'*R*con ...
         + (con(4)+con(3))'*W*(con(4)+con(3)) ... 
-        + (con(1:2)-con_l(1:2))'*G*(con(1:2)-con_l(1:2)) ; % calculate obj
+        + (con-con_l)'*G*(con-con_l) ; % calculate obj
     st_next = X(:,k+1);
     f_value = f(st,con);
     st_next_euler = st+ (T*f_value);
@@ -81,7 +81,11 @@ opts.print_time = 0;
 opts.ipopt.acceptable_tol =1e-8;
 opts.ipopt.acceptable_obj_change_tol = 1e-6;
 
-solver = nlpsol('solver', 'ipopt', nlp_prob,opts);
+% opts = struct;
+% opts.qpsol = 'qrqp';
+% opts.qpsol_options.error_on_fail = false;
+
+solver = nlpsol('solver', 'ipopt', nlp_prob, opts);
 
 args = struct;
 

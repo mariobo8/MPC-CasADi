@@ -7,9 +7,7 @@ clc
 addpath('/Users/mariobozza/Documents/CasADi/casadi-3.6.4-osx64-matlab2018b')
 
 import casadi.*
-%% define path
-xu = linspace(1,0.1,10);
-yu = zeros(1,100);
+
 %%
 T = 0.2; %[s]
 N = 80; % prediction horizon
@@ -28,7 +26,7 @@ states = [x; y; psi, theta]; n_states = length(states);
 vf = SX.sym('vf'); vr = SX.sym('vr'); 
 deltaf = SX.sym('deltaf'); deltar = SX.sym('deltar');
 virtual_v = SX.sym('virtual_v');
-controls = [vf; vr; deltaf; deltar]; n_controls = length(controls);
+controls = [vf; vr; deltaf; deltar; virtual_v]; n_controls = length(controls);
 
 % kinematics
 beta = atan((lf * tan(deltar) + lr * tan(deltaf)) / (lf + lr));
