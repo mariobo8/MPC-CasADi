@@ -59,40 +59,40 @@ for k = 1:size(xx,2)
 end
 close(gcf)
 % viobj = close(aviobj)
-% video = VideoWriter('exp.mp4','MPEG-4');
-% video.FrameRate = 5;  % (frames per second) this number depends on the sampling time and the number of frames you have
-% open(video)
-% writeVideo(video,F)
-% close (video)
+video = VideoWriter('4ws_point_stab.mp4','MPEG-4');
+video.FrameRate = 10;  % (frames per second) this number depends on the sampling time and the number of frames you have
+open(video)
+writeVideo(video,F)
+close (video)
 
 figure
-subplot(321)
+subplot(221)
 stairs(t,u_cl(:,1),'k','linewidth',1.5); axis([0 t(end) -0.35 0.75])
 ylabel('v_f (rad/s)')
 grid on
-subplot(322)
+subplot(222)
 stairs(t,u_cl(:,2),'k','linewidth',1.5); axis([0 t(end) -0.85 0.85])
 xlabel('time (seconds)')
 ylabel('v_r (rad/s)')
 grid on
-subplot(323)
+subplot(223)
 stairs(t,u_cl(:,3),'r','linewidth',1.5); axis([0 t(end) -0.85 0.85])
 xlabel('time (seconds)')
-ylabel('delta_f (rad)')
+ylabel('\delta_f (rad)')
 grid on
-subplot(324)
+subplot(224)
 stairs(t,u_cl(:,4),'r','linewidth',1.5); axis([0 t(end) -0.85 0.85])
 xlabel('time (seconds)')
-ylabel('delta_r (rad)')
+ylabel('\delta_r (rad)')
 grid on
-subplot(325)
-stairs(t,u_cl(:,5),'r','linewidth',1.5); axis([0 t(end) -0.85 0.85])
-xlabel('time (seconds)')
-ylabel('alpha (rad)')
-grid on
+% subplot(325)
+% stairs(t,u_cl(:,5),'r','linewidth',1.5); axis([0 t(end) -0.85 0.85])
+% xlabel('time (seconds)')
+% ylabel('alpha (rad)')
+% grid on
 
 figure
 stairs(t, beta,'b','linewidth',1.5)
 xlabel('time (seconds)')
-ylabel('sideslip angle (rad)')
+ylabel('\beta (rad)')
 grid on

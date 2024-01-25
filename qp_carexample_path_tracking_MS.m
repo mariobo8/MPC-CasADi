@@ -1,5 +1,5 @@
-%% implement a car vehicle model with rear traction path tracking MPC
-
+% %% implement a car vehicle model with rear traction path tracking MPC
+% % 
 clearvars;
 close all
 clc
@@ -11,10 +11,10 @@ import casadi.*
 
 %%
 T = 0.1; %[s]
-N = 50; % prediction horizon
+N = 40; % prediction horizon
 lf = 0.4;
 lr = 0.4;
-lambda = - 1e-3;
+lambda = -0.005;% 1e-8;
 v_max = 0.6; v_min = -v_max;
 delta_max = pi/4; delta_min = -delta_max;
 
@@ -38,7 +38,7 @@ rho = - mu(1) * log(mu(2)./(mu(3) + abs(theta))) .* sin(mu(4) * theta);
 
 rhs = [v * cos(psi); v * sin(psi); ... 
        v * tan(delta);
-       -lambda * theta + virtual_v]; % system r.h.s
+       -lambda * (-30) + virtual_v]; % system r.h.s
 
 f = Function('f',{states,controls},{rhs}); % nonlinear mapping function f(x,u)
 U = SX.sym('U',n_con,N); % Decision variables (controls)
@@ -47,26 +47,48 @@ X = SX.sym('X',n_st,(N+1)); % A vector that represents the states over the optim
 obj = 0; % Objective function
 g = [];  % constraints vector
 
-Q = zeros(4,4); Q(1,1) = 8e6; Q(2,2) = 8e6; 
-                Q(3,3) = 8e6; q(4,4) = 8/16;% weighing matrices (states)
-R = zeros(3,3); R(1,1) = 10; R(2,2) = 10000; ...
-                R(3,3) = 1;% weighing matrices (controls)
+Q = zeros(4,4); Q(1,1) = 4*10^6; Q(2,2) = 7*10^6; 
+                Q(3,3) = 8*10^5; q(4,4) = 0.5;% weighing matrices (states)
+R = zeros(3,3); R(1,1) = 10e1; R(2,2) = 10e1; ...
+                R(3,3) = 100;% weighing matrices (controls)
 
+W = zeros(3,3); W(1,1) = 1e8; W(2,2) = 1e9;...
+                W(3,3) = 1e4; %weight for rate of change
+
+eps = 1700;
 st  = X(:,1); % initial state
 g = [g;st-P(1:4)]; % initial condition constraints
-eps = 1500;
-for mu = 1:N
-    st = X(:,mu);  con = U(:,mu); 
-    obj = obj + (st-P(5:8))'*Q*(st-P(5:8)) + (con-P(9:11))'*R*(con-P(9:11)) + eps/2*st(4)^2; % calculate obj
-    st_next = X(:,mu+1);
+
+for k = 1:N
+    st = X(:,k);  con = U(:,k); 
+    if k == N
+        con_l = con;
+    else
+        con_l = U(:,k+1);   
+    end
+    obj = obj + (st-P(5:8))'*Q*(st-P(5:8)) + ...
+          (con-P(9:11))'*R*(con-P(9:11)) + ...
+          (con - con_l)'*W*(con - con_l)  ...
+          ; % calculate obj
+    st_next = X(:,k+1);
     f_value = f(st,con);
     st_next_euler = st+ (T*f_value);
     g = [g;st_next-st_next_euler]; % compute constraints
 end
+obj = obj + eps/2*st(4)^2;
+
 % make the decision variable one column  vector
 OPT_variables = [reshape(X,n_st*(N+1),1);reshape(U,n_con*N,1)];
 
 nlp_prob = struct('f', obj, 'x', OPT_variables, 'g', g, 'p', P);
+
+opts = struct;
+opts.ipopt.max_iter = 2000;
+opts.ipopt.print_level =0;%0,3
+opts.print_time = 0;
+opts.ipopt.acceptable_tol =1e-8;
+opts.ipopt.acceptable_obj_change_tol = 1e-6;
+
 
 opts = struct;
 opts.qpsol = 'qrqp';
@@ -74,19 +96,15 @@ opts.qpsol_options.error_on_fail = false;
 
 solver = nlpsol('solver', 'sqpmethod', nlp_prob, opts);
 
+% solver = nlpsol('solver', 'ipopt', nlp_prob, opts);
+
 args = struct;
 
 args.lbg(1:n_st*(N+1)) = 0;  % -1e-20  % Equality constraints
 args.ubg(1:n_st*(N+1)) = 0;  % 1e-20   % Equality constraints
 
-%parameters for constr
-eps = 0; %also employed to construct an extendedset 
-            % Z_ε (introduced later) taking the particular structure of
-            % the path-following problem into account.
-
-%
 args.lbx(1:n_st:n_st*(N+1)-n_st+1,1) =-30; %state x lower bound
-args.ubx(1:n_st:n_st*(N+1)-n_st+1,1) = -eps; %state x upper bound
+args.ubx(1:n_st:n_st*(N+1)-n_st+1,1) = 0; %state x upper bound
 args.lbx(2:n_st:n_st*(N+1)-n_st+2,1) = - inf; %state y lower bound
 args.ubx(2:n_st:n_st*(N+1)-n_st+2,1) = inf; %state y upper bound
 args.lbx(3:n_st:n_st*(N+1)-n_st+3,1) = -inf; %state psi lower bound
@@ -116,7 +134,7 @@ f2 = Function('f',{theta},{rho});
 rho_0 = full(f2(-30));
 rho_f = full(f2(0));
 %Initial conditions
-x0 = [-30; 3; 0.0; -30]; %initial condition state
+x0 = [-30; 3; -0.3; -30]; %initial condition state
 xp0 = [-30 ; rho_0 ; -1; 0.0];    % initial condition path
 xf = [0; rho_f; 0; 0]; %last path position
 
@@ -127,7 +145,7 @@ t(1) = t0;
 u0 = zeros(N,n_con);        % two control inputs for each robot
 X0 = repmat(x0,1,N+1)'; % initialization of the states decision variables
 
-sim_tim = 30; % Maximum simulation time
+sim_tim = 60; % Maximum simulation time
 
 % Start MPC
 mpciter = 0;
@@ -139,20 +157,24 @@ u_cl=[];
 % value.
 theta_prev = -30;
 main_loop = tic;
-while(norm((x0-xf),2) > 1e-1 && mpciter < sim_tim / T)
+fin = 0; 
+while(fin < 10 && mpciter < sim_tim / T )
     step = tic;
     args.p   = [x0;xp0;up0]; % set the values of the parameters vector
     % initial value of the optimization variables
     args.x0  = [reshape(X0',n_st*(N+1),1);reshape(u0',n_con*N,1)];
     sol = solver('x0', args.x0, 'lbx', args.lbx, 'ubx', args.ubx,...
         'lbg', args.lbg, 'ubg', args.ubg,'p',args.p);
+    cost_f(mpciter+1) = full(sol.f);
     u = reshape(full(sol.x(n_st*(N+1)+1:end))',n_con,N)'; % get controls only from the solution
     xx1(:,1:n_st,mpciter+1)= reshape(full(sol.x(1:n_st*(N+1)))',n_st,N+1)'; % get solution TRAJECTORY
     u_cl= [u_cl ; u(1,:)];
     t(mpciter+1) = t0;
     theta_prev_prev = theta_prev;
     theta_prev = x0(4);
-   
+    if norm((x0(1:2)-xf(1:2)),2) < 5e-1
+        fin = fin + 1;
+    end
     % Apply the control and shift the solution
     [t0, x0, xp0, u0, up0] = shift(T, t0, x0, u, f, f2, theta_prev, theta_prev_prev);
     xx(:,mpciter+2) = x0;
@@ -163,10 +185,13 @@ while(norm((x0-xf),2) > 1e-1 && mpciter < sim_tim / T)
     mpciter = mpciter + 1;
     error(:,mpciter) = norm((x0(1:3)-xp0(1:3)),2);
     step_time(mpciter) = toc(step);
+    dim_error(:,mpciter) = sqrt((x0(1)-xp0(1))^2+(x0(2)-xp0(2))^2);
 end
 main_loop_time = toc(main_loop);
 
 average_mpc_time = main_loop_time/(mpciter+1);
 
 
-Draw_MPC_path_trackin_carexample (t,xx,xx1,u_cl,xf,N, step_time, average_mpc_time, f2)
+Draw_MPC_path_trackin_carexample (t,xx,xx1,u_cl,xf,N, step_time, average_mpc_time, f2, cost_f, dim_error)
+
+

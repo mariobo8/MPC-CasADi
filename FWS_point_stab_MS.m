@@ -6,7 +6,7 @@ clc
 
 import casadi.*
 
-T = 0.2; %[s]
+T = 0.1; %[s]
 N = 30; % prediction horizon
 rob_diam = 0.3;
 lf = 0.4;
@@ -46,7 +46,7 @@ Q = zeros(3,3); Q(1,1) = 15;Q(2,2) = 15;Q(3,3) = 1; % weighing matrices (states)
 R = zeros(4,4); R(1,1) = 2.5; R(2,2) = 2.5; ...
                 R(3,3) = 0.1; R(4,4) = 0.1;% weighing matrices (controls)
 
-W = 1; % wieghting matrix for side sliding
+W = 0; % wieghting matrix for side sliding
 G = zeros(4,4); R(1,1) = 4; R(2,2) = 4; 
                 R(3,3) = 4; R(3,3) = 4;% weighing matrices (acceleration)
 
@@ -146,7 +146,7 @@ while(norm((x0-xs),2) > 1e-2 && mpciter < sim_tim / T)
     u_cl= [u_cl ; u(1,:)];
     t(mpciter+1) = t0;
     % Apply the control and shift the solution
-    [t0, x0, u0] = shift(T, t0, x0, u,f);
+    [t0, x0, u0] = shift_old(T, t0, x0, u,f);
     xx(:,mpciter+2) = x0;
     X0 = reshape(full(sol.x(1:3*(N+1)))',3,N+1)'; % get solution TRAJECTORY
     % Shift trajectory to initialize the next step
