@@ -1,4 +1,4 @@
-function Draw_MPC_PP_path_trackin_carexample (t,xx,xx1,u_cl,xs,N, step_time, average_mpc_time, cost_f, dim_error, x_p, y_p)
+function Draw_MPC_PP_4ws_path_trackin_carexample (t,xx,xx1,u_cl,xs,N, step_time, average_mpc_time, cost_f, dim_error, x_p, y_p, beta)
 
 
 set(0,'DefaultAxesFontName', 'Times New Roman')
@@ -69,21 +69,25 @@ end
 
 
 figure
-subplot(311)
+subplot(221)
 stairs(t,u_cl(:,1),'k','linewidth',1.5); axis([0 t(end) 0 1.2])
-ylabel('v (m/s)')
+ylabel('v_f (m/s)')
 grid on
-subplot(312)
-stairs(t,u_cl(:,2),'k','linewidth',1.5); axis([0 t(end) -.70 .70])
+subplot(222)
+stairs(t,u_cl(:,2),'k','linewidth',1.5); axis([0 t(end) 0 1.2])
 xlabel('time (seconds)')
-ylabel('\delta (rad)')
+ylabel('v_r (rad)')
 grid on
-subplot(313)
-stairs(t,u_cl(:,3),'r','linewidth',1.5); axis([0 t(end) 0 1.2])
+subplot(223)
+stairs(t,u_cl(:,3),'r','linewidth',1.5); axis([0 t(end) -.70 .70])
 xlabel('time (seconds)')
-ylabel('v_{virtual} (rad/s)')
+ylabel('\delta_f (rad/s)')
 grid on
-
+subplot(224)
+stairs(t,u_cl(:,4),'r','linewidth',1.5); axis([0 t(end) -.70 .70])
+xlabel('time (seconds)')
+ylabel('\delta_r (rad/s)')
+grid on
 
 figure
 plot(1:length(step_time),step_time*1000,'linewidth',1);
@@ -92,18 +96,28 @@ yline(average_mpc_time*1000,'r','linewidth',line_width);
 xlabel('mpc step')
 ylabel('solving time (ms)')
 legend('','average')
+xlim([0 length(t)])
 grid on
 
 figure
 plot(cost_f,'linewidth',line_width)
 xlabel('mpc step')
 ylabel('Objective function')
+xlim([0 length(t)])
 grid on
 
 figure
 plot(t, dim_error,'linewidth',1.5)
 xlabel('time (seconds)')
 ylabel('Path-error (meters)')
+xlim([0 t(end)])
+grid on
+
+figure
+plot(t, beta,'linewidth',1.5)
+xlabel('time (seconds)')
+ylabel('\beta (rad)')
+xlim([0 t(end)])
 grid on
 
 
