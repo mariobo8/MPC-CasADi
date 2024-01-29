@@ -84,12 +84,7 @@ args.lbx(1:2:2*N-1,1) = v_min; args.lbx(2:2:2*N,1)   = delta_min;
 args.ubx(1:2:2*N-1,1) = v_max; args.ubx(2:2:2*N,1)   = delta_max;
 
 
-%----------------------------------------------
-% ALL OF THE ABOVE IS JUST A PROBLEM SETTING UP
 
-
-% THE SIMULATION LOOP SHOULD START FROM HERE
-%-------------------------------------------
 t0 = 0;
 x0 = [0 ; 0 ; 0.0];    % initial condition.
 xs = [1.5 ; 1.5 ; 0]; % Reference posture.

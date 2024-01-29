@@ -16,6 +16,7 @@ d2rho_dtheta2 = (rho - 2 * (rho - rho_prev) + (rho - rho_prev_prev))/...
                 ((theta - theta_prev)*(theta_prev-theta_prev_prev));
 xp0 = [theta; rho; atan(drho_dtheta); 0];
 t0 = t0 + T;
+%add last one twice to make them the same size?!
 u0 = [u(2:size(u,1),:);u(size(u,1),:)];
 
 
