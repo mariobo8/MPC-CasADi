@@ -11,9 +11,10 @@ import casadi.*
 
 %%
 T = 0.1; %[s]
-N = 10; % prediction horizon
+N = 40; % prediction horizon
 lf = 0.4;
-lr = 0.9;
+lr = 0.4;
+m = 0.4;
 lambda =  -1e-5;
 v_max = 0.6; v_min = -v_max;
 delta_max = pi/4; delta_min = -delta_max;
@@ -26,23 +27,28 @@ states = [x; y; psi; s]; n_st = length(states);
 % inputs
 vf = SX.sym('vf'); vr = SX.sym('vr'); 
 deltaf = SX.sym('deltaf'); deltar = SX.sym('deltar');
+alpha = SX.sym('alpha');
 virtual_v = SX.sym('virtual_v');
-controls = [vf; vr; deltaf; deltar; virtual_v]; n_con = length(controls);
+controls = [vf; vr; deltaf; deltar; alpha; virtual_v]; n_con = length(controls);
 
 %% path gen
-load("step_path.mat")
+load("x-y_path.mat")
 % x_p = x_p(1:10);
 % y_p = x_p(1:10);
 % arc_length = arc_length(1:10);
 arc_length = arc_length - arc_length(end);
 %%
 % kinematics
-beta = atan((lf * tan(deltar) + lr * tan(deltaf)) / (lf + lr));
-v = (vf * cos(deltaf) + vr * cos(deltar)) / (2 * cos(beta));
+beta = atan(((lf - m * sin(alpha)) * tan(deltar) + lr * tan(deltaf + alpha)) / ((lf - m * sin(alpha)) + lr));
+v = (vf * cos(deltaf + alpha) + vr * cos(deltar)) / (2 * cos(beta));
 
 rhs = [v * cos(psi + beta); v * sin(psi + beta); ... 
-       v * cos(beta) * (tan(deltaf) - tan(deltar)) / (lf + lr);
-       lambda*(-30) + virtual_v]; % system r.h.s
+       v * cos(beta) * (tan(deltaf + alpha) - tan(deltar)) / ((lf - m * sin(alpha)) + lr);
+       lambda*(-52) + virtual_v]; % system r.h.s
+
+
+
+
 
 f = Function('f',{states,controls},{rhs}); % nonlinear mapping function f(x,u)
 U = SX.sym('U',n_con,N); % Decision variables (controls)
@@ -51,16 +57,16 @@ X = SX.sym('X',n_st,(N+1)); % A vector that represents the states over the optim
 obj = 0; % Objective function
 g = [];  % constraints vector
 
-Q = zeros(4,4); Q(1,1) = 1e7; Q(2,2) = 1e7; 
-                Q(3,3) = 1e7; q(4,4) = 0.5;% weighing matrices (states)
+Q = zeros(4,4); Q(1,1) = 1e6; Q(2,2) = 1e6; 
+                Q(3,3) = 1e6; q(4,4) = 0.5;% weighing matrices (states)
 
-R = zeros(5,5); R(1,1) = 1e1; R(2,2) = 1e1; ...
+R = zeros(6,6); R(1,1) = 1e1; R(2,2) = 1e1; ...
                 R(3,3) = 1e1; R(4,4) = 1e1; ...
-                R(5,5) = 0.01;% weighing matrices (controls)
+                R(5,5) = 1e1; R(6,6) = 0.01; % weighing matrices (controls)
 
-W = zeros(5,5); W(1,1) = 1e9; W(2,2) = 1e9;...
-                W(3,3) = 1e9; W(4,4) = 1e9;...
-                W(5,5) = 1; %weight for rate of change
+W = zeros(6,6); W(1,1) = 1e12; W(2,2) = 1e12;...
+                W(3,3) = 1e12; W(4,4) = 1e12;...
+                W(5,5) = 1e12; W(6,6) = 1;  %weight for rate of change
 
 
 % W = zeros(5,5); W(1,1) = 0; W(2,2) = 0;...
@@ -78,7 +84,7 @@ for k = 1:N
         con_l = U(:,k+1);   
     end
     obj = obj + (st-P(5:8))'*Q*(st-P(5:8)) + ...
-          (con-P(9:13))'*R*(con-P(9:13)) + ...
+          (con-P(9:14))'*R*(con-P(9:14)) + ...
           (con - con_l)'*W*(con - con_l); % calculate obj
     st_next = X(:,k+1);
     f_value = f(st,con);
@@ -122,12 +128,14 @@ args.lbx(n_st*(N+1)+1:n_con:n_st*(N+1)+n_con*N,1) = 0;      %lb on vf
 args.ubx(n_st*(N+1)+1:n_con:n_st*(N+1)+n_con*N,1) = 1;      %ub on vf
 args.lbx(n_st*(N+1)+2:n_con:n_st*(N+1)+n_con*N,1) = 0;      %lb on vr
 args.ubx(n_st*(N+1)+2:n_con:n_st*(N+1)+n_con*N,1) = 1;      %ub on vr
-args.lbx(n_st*(N+1)+3:n_con:n_st*(N+1)+n_con*N,1) = - 1.05; %lb on deltaf
-args.ubx(n_st*(N+1)+3:n_con:n_st*(N+1)+n_con*N,1) = 1.05;   %ub on deltaf
-args.lbx(n_st*(N+1)+4:n_con:n_st*(N+1)+n_con*N,1) = - 1.05; %lb on deltar
-args.ubx(n_st*(N+1)+4:n_con:n_st*(N+1)+n_con*N,1) = 1.05;   %ub on deltar
-args.lbx(n_st*(N+1)+5:n_con:n_st*(N+1)+n_con*N,1) = 0;      %lb on virtual v
-args.ubx(n_st*(N+1)+5:n_con:n_st*(N+1)+n_con*N,1) = 1;      %ub on virtual v
+args.lbx(n_st*(N+1)+3:n_con:n_st*(N+1)+n_con*N,1) = - 0.63; %lb on deltaf
+args.ubx(n_st*(N+1)+3:n_con:n_st*(N+1)+n_con*N,1) = 0.63;   %ub on deltaf
+args.lbx(n_st*(N+1)+4:n_con:n_st*(N+1)+n_con*N,1) = - 0.63; %lb on deltar
+args.ubx(n_st*(N+1)+4:n_con:n_st*(N+1)+n_con*N,1) = 0.63;   %ub on deltar
+args.lbx(n_st*(N+1)+5:n_con:n_st*(N+1)+n_con*N,1) = - 0.63; %lb on deltar
+args.ubx(n_st*(N+1)+5:n_con:n_st*(N+1)+n_con*N,1) = 0.63;   %ub on deltar
+args.lbx(n_st*(N+1)+6:n_con:n_st*(N+1)+n_con*N,1) = 0;      %lb on virtual v
+args.ubx(n_st*(N+1)+6:n_con:n_st*(N+1)+n_con*N,1) = 1;      %ub on virtual v
 
 
 %----------------------------------------------
@@ -141,7 +149,7 @@ t0 = 0;
 
 %Initial conditions
 x0 = [x_p(1); y_p(1); 0; arc_length(1)]; %initial condition state
-xp0 = [x_p(1) ; y_p(1) ; 0; 0.0];    % initial condition path
+xp0 = [x_p(1) ; y_p(1) ; 1; 0.0];    % initial condition path
 xf = [x_p(end); y_p(end); 0; 0]; %last path position
 s_0 = arc_length(1);
 up0 = zeros(n_con,1); %initial control reference
@@ -182,10 +190,8 @@ while(fin < 20 && mpciter < sim_tim / T )
         fin = fin + 1;
     end
     % Apply the control and shift the solution
-    [t0, x0, xp0, u0, up0, x_int, y_int] = PP_4ws_shift(mpciter, T, t0, x0, u, f, arc_length, s_0, s_prev, x_p, y_p);
+    [t0, x0, xp0, u0, up0] = pivot_PP_4ws_shift(mpciter, T, t0, x0, u, f, arc_length, s_0, s_prev, x_p, y_p);
     xx(:,mpciter+2) = x0;
-    x_r(mpciter+1) = x_int;
-    y_r(mpciter+1) = y_int;
     X0 = reshape(full(sol.x(1:n_st*(N+1)))',n_st,N+1)'; % get solution TRAJECTORY
     % Shift trajectory to initialize the next step
     X0 = [X0(2:end,:);X0(end,:)];
@@ -194,14 +200,13 @@ while(fin < 20 && mpciter < sim_tim / T )
     error(:,mpciter) = norm((x0(1:3)-xp0(1:3)),2);
     step_time(mpciter) = toc(step);
     dim_error(:,mpciter) = sqrt((x0(1)-xp0(1))^2+(x0(2)-xp0(2))^2);
-    
 end
 main_loop_time = toc(main_loop);
 
 average_mpc_time = main_loop_time/(mpciter+1);
 
-f = Function('f',{deltaf,deltar},{beta});
-b = full(f(u_cl(:,3),u_cl(:,4)));
-Draw_MPC_PP_4ws_path_trackin_carexample (t,xx,xx1,u_cl,xf,N, step_time, average_mpc_time, cost_f, dim_error, x_p, y_p, b, x_r, y_r)
+f = Function('f',{deltaf,deltar,alpha},{beta});
+b = full(f(u_cl(:,3),u_cl(:,4),u_cl(:,4)));
+Draw_MPC_pivot_PP_4ws_path_trackin_carexample (t,xx,xx1,u_cl,xf,N, step_time, average_mpc_time, cost_f, dim_error, x_p, y_p, b)
 
 

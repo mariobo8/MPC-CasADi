@@ -1,4 +1,4 @@
-function [t0, x0, xp0, u0, up0, x_int, y_int] = PP_4ws_shift(mpciter, T, t0, x0, u, f, arc_length, theta_prev, theta_prev_prev, x_p, y_p)
+function [t0, x0, xp0, u0, up0] = PP_4ws_shift(mpciter, T, t0, x0, u, f, arc_length, theta_prev, theta_prev_prev, x_p, y_p)
 st = x0;
 con = u(1,:)';
 f_value = f(st,con);

@@ -1,4 +1,4 @@
-function [t0, x0, xp0, u0, up0, x_int, y_int] = PP_4ws_shift(mpciter, T, t0, x0, u, f, arc_length, theta_prev, theta_prev_prev, x_p, y_p)
+function [t0, x0, xp0, u0, up0] = pivot_PP_4ws_shift(mpciter, T, t0, x0, u, f, arc_length, theta_prev, theta_prev_prev, x_p, y_p)
 st = x0;
 con = u(1,:)';
 f_value = f(st,con);
@@ -29,7 +29,7 @@ xp0 = [x_int; y_int; psi_int; 0];
 t0 = t0 + T;
 u0 = [u(2:size(u,1),:);u(size(u,1),:)];
 
-up0 = [0; 0; 0; 0; 0];
+up0 = [0; 0; 0; 0; 0; 0];
 
 % up0 = [((x_int-x_int_prev)-(y_int-y_int_prev))/(T*(cos(x0(3))+sin(x0(3)))); 
 %         atan2((psi_int - psi_int_prev),(T*((x_int-x_int_prev)-(y_int-y_int_prev))...
