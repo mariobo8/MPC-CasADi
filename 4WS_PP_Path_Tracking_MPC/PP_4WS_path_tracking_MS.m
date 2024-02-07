@@ -30,7 +30,7 @@ virtual_v = SX.sym('virtual_v');
 controls = [vf; vr; deltaf; deltar; virtual_v]; n_con = length(controls);
 
 %% path gen
-load("step_path.mat")
+load("s_shape_path.mat")
 % x_p = x_p(1:10);
 % y_p = x_p(1:10);
 % arc_length = arc_length(1:10);
@@ -42,7 +42,7 @@ v = (vf * cos(deltaf) + vr * cos(deltar)) / (2 * cos(beta));
 
 rhs = [v * cos(psi + beta); v * sin(psi + beta); ... 
        v * cos(beta) * (tan(deltaf) - tan(deltar)) / (lf + lr);
-       lambda*(-30) + virtual_v]; % system r.h.s
+       virtual_v]; % system r.h.s
 
 f = Function('f',{states,controls},{rhs}); % nonlinear mapping function f(x,u)
 U = SX.sym('U',n_con,N); % Decision variables (controls)
@@ -51,15 +51,15 @@ X = SX.sym('X',n_st,(N+1)); % A vector that represents the states over the optim
 obj = 0; % Objective function
 g = [];  % constraints vector
 
-Q = zeros(4,4); Q(1,1) = 1e7; Q(2,2) = 1e7; 
-                Q(3,3) = 1e7; q(4,4) = 0.5;% weighing matrices (states)
+Q = zeros(4,4); Q(1,1) = 5e7; Q(2,2) = 5e7; 
+                Q(3,3) = 5e7; q(4,4) = 0.5;% weighing matrices (states)
 
-R = zeros(5,5); R(1,1) = 1e1; R(2,2) = 1e1; ...
-                R(3,3) = 1e1; R(4,4) = 1e1; ...
+R = zeros(5,5); R(1,1) = 1e2; R(2,2) = 1e2; ...
+                R(3,3) = 1e2; R(4,4) = 1e2; ...
                 R(5,5) = 0.01;% weighing matrices (controls)
 
-W = zeros(5,5); W(1,1) = 1e9; W(2,2) = 1e9;...
-                W(3,3) = 1e9; W(4,4) = 1e9;...
+W = zeros(5,5); W(1,1) = 1e7; W(2,2) = 1e7;...
+                W(3,3) = 1e7; W(4,4) = 1e7;...
                 W(5,5) = 1; %weight for rate of change
 
 
@@ -108,13 +108,13 @@ args = struct;
 args.lbg(1:n_st*(N+1)) = 0;  % -1e-20  % Equality constraints
 args.ubg(1:n_st*(N+1)) = 0;  % 1e-20   % Equality constraints
 
-args.lbx(1:n_st:n_st*(N+1)-n_st+1,1) =-30; %state x lower bound
+args.lbx(1:n_st:n_st*(N+1)-n_st+1,1) =-inf; %state x lower bound
 args.ubx(1:n_st:n_st*(N+1)-n_st+1,1) = 0; %state x upper bound
 args.lbx(2:n_st:n_st*(N+1)-n_st+2,1) = - inf; %state y lower bound
 args.ubx(2:n_st:n_st*(N+1)-n_st+2,1) = inf; %state y upper bound
 args.lbx(3:n_st:n_st*(N+1)-n_st+3,1) = -inf; %state psi lower bound
 args.ubx(3:n_st:n_st*(N+1)-n_st+3,1) = inf; %state psi upper bound
-args.lbx(4:n_st:n_st*(N+1)-n_st+4,1) = -58; %state s lower bound
+args.lbx(4:n_st:n_st*(N+1)-n_st+4,1) = -inf; %state s lower bound
 args.ubx(4:n_st:n_st*(N+1)-n_st+4,1) = 0; %state s upper bound
 
 % input constraints

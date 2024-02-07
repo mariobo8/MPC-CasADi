@@ -30,11 +30,11 @@ virtual_v = SX.sym('virtual_v');
 controls = [vf; vr; deltaf; deltar; virtual_v]; n_con = length(controls);
 
 %% path gen
-load("step_path.mat")
+load("s_shape_path.mat")
 % x_p = x_p(1:10);
 % y_p = x_p(1:10);
 % arc_length = arc_length(1:10);
-arc_length = arc_length - arc_length(end);
+arc_length = arc_length;% - arc_length(end);
 %%
 % kinematics
 beta = atan2((lf * tan(deltar) + lr * tan(deltaf)) , (lf + lr));
@@ -52,8 +52,8 @@ X = SX.sym('X',n_st,(N+1)); % A vector that represents the states over the optim
 obj = 0; % Objective function
 g = [];  % constraints vector
 
-Q = zeros(4,4); Q(1,1) = 1e5; Q(2,2) = 1e5; 
-                Q(3,3) = 1e4; Q(4,4) = 0;% weighing matrices (states)
+Q = zeros(4,4); Q(1,1) = 4e5; Q(2,2) = 4e5; 
+                Q(3,3) = 4e4; Q(4,4) = 0;% weighing matrices (states)
 
 R = zeros(5,5); R(1,1) = 1e2; R(2,2) = 1e2; ...
                 R(3,3) = 1e2; R(4,4) = 1e2; ...
@@ -64,9 +64,9 @@ R = zeros(5,5); R(1,1) = 1e2; R(2,2) = 1e2; ...
 %                 W(5,5) = 1e5; %weight for rate of change
 
 
-W = zeros(5,5); W(1,1) = 8e3; W(2,2) = 8e3;...
-                W(3,3) = 4e3; W(4,4) = 4e3;...
-                W(5,5) = 20; %weight for rate of change
+W = zeros(5,5); W(1,1) = 1e5; W(2,2) = 1e5;...
+                W(3,3) = 4e4; W(4,4) = 4e4;...
+                W(5,5) = 1e2; %weight for rate of change
 eps = 1e3;
 st  = X(:,1); % initial state
 g = [g;st-P(1:4)]; % initial condition constraints
@@ -77,14 +77,15 @@ for k = 1:N
     ind_con = ((N-1)*4+9+(k-1)*5 : (N-1)*4+9+(k-1)*5 + 4);
     obj = obj + (st-P(ind_st))'*Q*(st-P(ind_st)) + ...
           (con)'*R*(con) + ...
-          %([U(5,k); U(5,k)] - [U(1,k); U(2,k)])'*F*([U(5,k); U(5,k)] - [U(1,k); U(2,k)]) + ...
           (con - P(ind_con))'*W*(con - P(ind_con)); % calculate obj
+          %([U(5,k); U(5,k)] - [U(1,k); U(2,k)])'*F*([U(5,k); U(5,k)] - [U(1,k); U(2,k)]) +
+          
     st_next = X(:,k+1);
     f_value = f(st,con);
     st_next_euler = st+ (T*f_value);
     g = [g;st_next-st_next_euler]; % compute constraints
 end
- obj = obj + eps/2*(st(4))^2;
+ obj = obj - eps/2*(st(4))^2;
 
 % make the decision variable one column  vector
 OPT_variables = [reshape(X,n_st*(N+1),1);reshape(U,n_con*N,1)];
@@ -108,18 +109,18 @@ args.lbg(1:n_st*(N+1)) = 0;  % -1e-20  % Equality constraints
 args.ubg(1:n_st*(N+1)) = 0;  % 1e-20   % Equality constraints
 
 args.lbx(1:n_st:n_st*(N+1),1) =-inf; %state x lower bound
-args.ubx(1:n_st:n_st*(N+1),1) = inf; %state x upper bound
+args.ubx(1:n_st:n_st*(N+1),1) = 0; %state x upper bound
 args.lbx(2:n_st:n_st*(N+1),1) = - inf; %state y lower bound
 args.ubx(2:n_st:n_st*(N+1),1) = inf; %state y upper bound
 args.lbx(3:n_st:n_st*(N+1),1) = -inf; %state psi lower bound
 args.ubx(3:n_st:n_st*(N+1),1) = inf; %state psi upper bound
 args.lbx(4:n_st:n_st*(N+1),1) = -inf; %state s lower bound
-args.ubx(4:n_st:n_st*(N+1),1) = inf; %state s upper bound
+args.ubx(4:n_st:n_st*(N+1),1) = arc_length(end); %state s upper bound
 
 % input constraints
-args.lbx(n_st*(N+1)+1:n_con:n_st*(N+1)+n_con*N,1) = 0;      %lb on vf
+args.lbx(n_st*(N+1)+1:n_con:n_st*(N+1)+n_con*N,1) = -1;      %lb on vf
 args.ubx(n_st*(N+1)+1:n_con:n_st*(N+1)+n_con*N,1) = 1;      %ub on vf
-args.lbx(n_st*(N+1)+2:n_con:n_st*(N+1)+n_con*N,1) = 0;      %lb on vr
+args.lbx(n_st*(N+1)+2:n_con:n_st*(N+1)+n_con*N,1) = -1;      %lb on vr
 args.ubx(n_st*(N+1)+2:n_con:n_st*(N+1)+n_con*N,1) = 1;      %ub on vr
 args.lbx(n_st*(N+1)+3:n_con:n_st*(N+1)+n_con*N,1) = - 1.05; %lb on deltaf
 args.ubx(n_st*(N+1)+3:n_con:n_st*(N+1)+n_con*N,1) = 1.05;   %ub on deltaf
@@ -139,7 +140,7 @@ t0 = 0;
 
 
 %Initial conditions
-x0 = [x_p(1); y_p(1); 0; arc_length(1)]; %initial condition state
+x0 = [-5; 1; 1.57; arc_length(1)]; %initial condition state
 xp0 = [];
 for jj = 1 : N  
     xp0 = [xp0; x_p(1) ; y_p(1) ; 0.0; 0.0];    % initial condition path

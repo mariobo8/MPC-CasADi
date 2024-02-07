@@ -68,7 +68,7 @@ for k = 1:size(xx,2)
 end
 %viobj = close(aviobj)
 % close(gcf)
-% video = VideoWriter('carexample_path_tracking.mp4','MPEG-4');
+% video = VideoWriter('carexample_path_tracking.avi','Uncompressed AVI');
 % video.FrameRate = 10;  % (frames per second) 
 % open(video)
 % writeVideo(video,F)
